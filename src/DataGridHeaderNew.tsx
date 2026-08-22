@@ -23,7 +23,8 @@ export function DataGridHeaderNew(props: DataGridHeaderNewContainerProps): React
     const [gridState, setGridState] = useState<GridState>({
         columnCount: 0,
         templateColumns: "",
-        originalHeaders: []
+        originalHeaders: [],
+        selectColumns: []
     });
 
     const parsed: ParsedHeader = useMemo(
@@ -36,7 +37,7 @@ export function DataGridHeaderNew(props: DataGridHeaderNewContainerProps): React
         if (!element) {
             console.error(`DataGrid2 '${gridName}' not found`);
             setGridElement(null);
-            setGridState({ columnCount: 0, templateColumns: "", originalHeaders: [] });
+            setGridState({ columnCount: 0, templateColumns: "", originalHeaders: [], selectColumns: [] });
             return;
         }
         setGridElement(element);

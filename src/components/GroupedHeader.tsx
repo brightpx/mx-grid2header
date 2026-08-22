@@ -1,8 +1,14 @@
-import { ReactElement } from "react";
+import { ReactElement, useEffect, useState } from "react";
 import classNames from "classnames";
 
 import { HeaderCell, HeaderLeaf, ParsedHeader } from "../utils/headerParser";
-import { GridState, forwardClick, getSortState } from "../utils/gridSync";
+import {
+    GridState,
+    forwardClick,
+    forwardSelectClick,
+    getSortState,
+    readSelectState
+} from "../utils/gridSync";
 
 export interface GroupedHeaderProps {
     parsed: ParsedHeader;
@@ -77,6 +83,52 @@ function LeafCellView({
     );
 }
 
+/** Mirrors the original select-all checkbox: real state + click forwarding */
+function SelectAllCell({
+    columnIndex,
+    gridState
+}: {
+    columnIndex: number;
+    gridState: GridState;
+}): ReactElement {
+    const originalHeader = gridState.originalHeaders[columnIndex];
+    const [tick, setTick] = useState(0);
+    const state = readSelectState(originalHeader);
+
+    // Keep mirroring while DG2 updates the checkbox asynchronously (e.g. after
+    // row selection changes), not only right after our own clicks
+    useEffect(() => {
+        const interval = setInterval(() => setTick(t => t + 1), 300);
+        return () => clearInterval(interval);
+    }, []);
+
+    return (
+        <div
+            className="widget-datagridheadernew-cell widget-datagridheadernew-filler widget-datagridheadernew-select-all"
+            style={{ gridColumn: `${columnIndex + 1}`, gridRow: "1 / span 2" }}
+            onClick={() => {
+                forwardSelectClick(originalHeader);
+            }}
+            key={`select-${columnIndex}-${tick}`}
+        >
+            <input
+                type="checkbox"
+                className="three-state-checkbox"
+                aria-label="Select all rows"
+                checked={state.checked}
+                onChange={() => {
+                    /* handled by cell onClick forwarding */
+                }}
+                ref={el => {
+                    if (el) {
+                        el.indeterminate = state.indeterminate;
+                    }
+                }}
+            />
+        </div>
+    );
+}
+
 export function GroupedHeader({ parsed, gridState }: GroupedHeaderProps): ReactElement {
     // Build row 2 leaves that are not covered by a rowspan=2 parent cell
     const coveredByParent = new Set<number>();
@@ -88,18 +140,19 @@ export function GroupedHeader({ parsed, gridState }: GroupedHeaderProps): ReactE
 
     const row2Leaves = parsed.row2.filter(leaf => !coveredByParent.has(leaf.columnIndex));
 
-    // Blank filler cells keep the grid aligned with unconfigured DataGrid2 columns
-    const configuredColumns = new Set<number>();
+    // Blank filler cells keep the grid aligned with unconfigured DataGrid2
+    // columns. A column needs a filler only when no row-1 cell covers it:
+    // rowspan=2 parents cover both rows, grouped parents leave row 2 to their
+    // child leaves, so any covered column must never get a filler on top.
+    const coveredByRow1 = new Set<number>();
     for (const cell of parsed.row1) {
         for (let i = cell.columnIndex; i < cell.columnIndex + cell.colspan; i++) {
-            if (cell.rowspan === 2 || !row2Leaves.some(l => l.columnIndex === i)) {
-                configuredColumns.add(i);
-            }
+            coveredByRow1.add(i);
         }
     }
     const fillers: number[] = [];
     for (let i = 0; i < gridState.columnCount; i++) {
-        if (!configuredColumns.has(i)) {
+        if (!coveredByRow1.has(i)) {
             fillers.push(i);
         }
     }
@@ -115,13 +168,21 @@ export function GroupedHeader({ parsed, gridState }: GroupedHeaderProps): ReactE
                 {row2Leaves.map((leaf, index) => (
                     <LeafCellView key={`${leaf.label}-${index}`} leaf={leaf} gridState={gridState} />
                 ))}
-                {fillers.map(columnIndex => (
-                    <div
-                        key={`filler-${columnIndex}`}
-                        className="widget-datagridheadernew-cell widget-datagridheadernew-filler"
-                        style={{ gridColumn: `${columnIndex + 1}`, gridRow: "1 / span 2" }}
-                    />
-                ))}
+                {fillers.map(columnIndex =>
+                    gridState.selectColumns.includes(columnIndex) ? (
+                        <SelectAllCell
+                            key={`select-${columnIndex}`}
+                            columnIndex={columnIndex}
+                            gridState={gridState}
+                        />
+                    ) : (
+                        <div
+                            key={`filler-${columnIndex}`}
+                            className="widget-datagridheadernew-cell widget-datagridheadernew-filler"
+                            style={{ gridColumn: `${columnIndex + 1}`, gridRow: "1 / span 2" }}
+                        />
+                    )
+                )}
             </div>
         </div>
     );

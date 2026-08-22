@@ -10,6 +10,8 @@ export interface GridState {
     templateColumns: string;
     /** Original header cells, one per visible column */
     originalHeaders: HTMLElement[];
+    /** Column indexes whose header holds the select-all checkbox */
+    selectColumns: number[];
 }
 
 export function findGrid(gridName: string): HTMLElement | null {
@@ -42,7 +44,7 @@ export function ensureHeaderContainer(gridElement: HTMLElement): HTMLElement {
 export function readGridState(gridElement: HTMLElement): GridState {
     const inner = findGridInner(gridElement);
     if (!inner) {
-        return { columnCount: 0, templateColumns: "", originalHeaders: [] };
+        return { columnCount: 0, templateColumns: "", originalHeaders: [], selectColumns: [] };
     }
 
     const computed = getComputedStyle(inner);
@@ -53,11 +55,47 @@ export function readGridState(gridElement: HTMLElement): GridState {
         ".widget-datagrid-grid-head [role='row'] > [role='columnheader']"
     );
 
+    // Columns whose header holds the select-all checkbox (th.widget-datagrid-col-select)
+    const selectColumns: number[] = [];
+    headerCells.forEach((cell, index) => {
+        if (cell.classList.contains("widget-datagrid-col-select")) {
+            selectColumns.push(index);
+        }
+    });
+
     return {
         columnCount: headerCells.length,
         templateColumns,
-        originalHeaders: Array.from(headerCells)
+        originalHeaders: Array.from(headerCells),
+        selectColumns
     };
+}
+
+/**
+ * Copies the current checked/indeterminate state of the original select-all
+ * checkbox so our mirrored checkbox always reflects the real grid state.
+ */
+export function readSelectState(originalHeader: HTMLElement): {
+    checked: boolean;
+    indeterminate: boolean;
+} {
+    const checkbox = originalHeader.querySelector<HTMLInputElement>("input[type='checkbox']");
+    return {
+        checked: !!checkbox?.checked,
+        indeterminate: !!checkbox?.indeterminate
+    };
+}
+
+/**
+ * Forwards a click to the original select-all checkbox. React listens for the
+ * change event on it, so we set its state and dispatch "click" (which makes
+ * React toggle + fire change), then let DG2 update row selection.
+ */
+export function forwardSelectClick(originalHeader: HTMLElement): void {
+    const checkbox = originalHeader.querySelector<HTMLInputElement>("input[type='checkbox']");
+    if (checkbox) {
+        checkbox.click();
+    }
 }
 
 export function getSortState(headerCell: HTMLElement): "none" | "ascending" | "descending" {

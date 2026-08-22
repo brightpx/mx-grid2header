@@ -1,0 +1,105 @@
+.widget-datagridheadernew-portal {
+    width: 100%;
+}
+
+.widget-datagridheadernew-root {
+    display: grid;
+    grid-template-columns: var(--widgets-grid-template-columns);
+    width: 100%;
+
+    /* Background color hooks — override these variables in your theme
+       or apply one of the .widget-datagridheadernew-bg-* preset classes */
+    --dgihn-header-background: #fafafa;
+    --dgihn-header-background-hover: rgba(0, 0, 0, 0.06);
+    --dgihn-header-background-sorted: rgba(5, 149, 210, 0.1);
+}
+
+/* Preset background classes — put on .widget-datagridheadernew-root */
+.widget-datagridheadernew-root.widget-datagridheadernew-bg-transparent {
+    --dgihn-header-background: transparent;
+}
+
+.widget-datagridheadernew-root.widget-datagridheadernew-bg-white {
+    --dgihn-header-background: #ffffff;
+}
+
+.widget-datagridheadernew-root.widget-datagridheadernew-bg-gray {
+    --dgihn-header-background: #eceff1;
+}
+
+.widget-datagridheadernew-root.widget-datagridheadernew-bg-blue {
+    --dgihn-header-background: #e3f2fd;
+}
+
+.widget-datagridheadernew-root.widget-datagridheadernew-bg-primary {
+    --dgihn-header-background: #0595d2;
+    --dgihn-header-background-hover: rgba(255, 255, 255, 0.15);
+    --dgihn-header-background-sorted: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+.widget-datagridheadernew-root.widget-datagridheadernew-bg-dark {
+    --dgihn-header-background: #37474f;
+    --dgihn-header-background-hover: rgba(255, 255, 255, 0.12);
+    --dgihn-header-background-sorted: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+}
+
+.widget-datagridheadernew-header {
+    display: contents;
+}
+
+.widget-datagridheadernew-row1,
+.widget-datagridheadernew-row2 {
+    display: contents;
+}
+
+.widget-datagridheadernew-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px;
+    font-weight: 600;
+    background-color: var(--dgihn-header-background);
+    border-bottom: 2px solid #e0e0e0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.widget-datagridheadernew-leaf {
+    font-weight: 400;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.widget-datagridheadernew-cell-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.widget-datagridheadernew-cell-sortable:hover {
+    background-color: var(--dgihn-header-background-hover);
+}
+
+.widget-datagridheadernew-sorted-ascending,
+.widget-datagridheadernew-sorted-descending {
+    color: #0595d2;
+    background-color: var(--dgihn-header-background-sorted);
+}
+
+.widget-datagridheadernew-bg-primary .widget-datagridheadernew-sorted-ascending,
+.widget-datagridheadernew-bg-primary .widget-datagridheadernew-sorted-descending,
+.widget-datagridheadernew-bg-dark .widget-datagridheadernew-sorted-ascending,
+.widget-datagridheadernew-bg-dark .widget-datagridheadernew-sorted-descending {
+    color: inherit;
+}
+
+.widget-datagridheadernew-sort-arrow {
+    font-size: 10px;
+    line-height: 1;
+}
+
+.widget-datagridheadernew-sort-hidden {
+    opacity: 0.25;
+}

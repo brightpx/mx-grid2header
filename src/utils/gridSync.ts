@@ -209,10 +209,16 @@ export function syncSequenceCells(
     const rows = Array.from(body.querySelectorAll<HTMLElement>(":scope > .tr"));
     const widthPx = `${options.width}px`;
     rows.forEach((row, rowIndex) => {
+        // Only the first body row keeps td-borders so the separator below the
+        // header is drawn once; every following row renders without it
+        const expectedClass =
+            rowIndex === 0
+                ? "td td-borders widget-datagridheadernew-seq-cell"
+                : "td widget-datagridheadernew-seq-cell";
         let cell = row.querySelector<HTMLElement>(":scope > .widget-datagridheadernew-seq-cell");
         if (!cell) {
             cell = document.createElement("div");
-            cell.className = "td widget-datagridheadernew-seq-cell";
+            cell.className = expectedClass;
             cell.setAttribute("role", "gridcell");
             cell.setAttribute("aria-hidden", "true");
             cell.textContent = String(options.startIndex + rowIndex + 1);
@@ -225,6 +231,11 @@ export function syncSequenceCells(
             }
             if (cell.style.width !== widthPx) {
                 cell.style.width = widthPx;
+            }
+            // Rows shift on paging/sorting, so the border class must follow
+            // the row index rather than staying on the reused node
+            if (cell.className !== expectedClass) {
+                cell.className = expectedClass;
             }
         }
         // Place the cell at the configured position. Detach first so the

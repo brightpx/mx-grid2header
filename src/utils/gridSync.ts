@@ -36,13 +36,19 @@ export function findGridInner(gridElement: HTMLElement): HTMLElement | null {
 /**
  * Creates (or reuses) the container that hosts the custom header, inserted
  * directly below the .widget-datagrid-header toolbar inside the grid.
+ * Recreates the container when DG2 replaced its toolbar so the old container
+ * ended up detached or in an unexpected place (e.g. after sorting).
  */
 export function ensureHeaderContainer(gridElement: HTMLElement): HTMLElement {
+    const anchor = gridElement.querySelector(".widget-datagrid-header");
+    const expectedParent = anchor?.parentElement ?? gridElement;
     let container = gridElement.querySelector<HTMLElement>(".widget-datagridheadernew-portal");
-    if (!container || !container.isConnected) {
+    if (!container || !container.isConnected || container.parentElement !== expectedParent) {
+        if (container) {
+            container.remove();
+        }
         container = document.createElement("div");
         container.className = "widget-datagridheadernew-portal";
-        const anchor = gridElement.querySelector(".widget-datagrid-header");
         if (anchor && anchor.parentElement) {
             anchor.parentElement.insertBefore(container, anchor.nextSibling);
         } else {
@@ -201,6 +207,7 @@ export function syncSequenceCells(
     }
     
     const rows = Array.from(body.querySelectorAll<HTMLElement>(":scope > .tr"));
+    const widthPx = `${options.width}px`;
     rows.forEach((row, rowIndex) => {
         let cell = row.querySelector<HTMLElement>(":scope > .widget-datagridheadernew-seq-cell");
         if (!cell) {
@@ -209,6 +216,7 @@ export function syncSequenceCells(
             cell.setAttribute("role", "gridcell");
             cell.setAttribute("aria-hidden", "true");
             cell.textContent = String(options.startIndex + rowIndex + 1);
+            cell.style.width = widthPx;
             if (options.position === "first") {
                 row.insertBefore(cell, row.firstChild);
             } else {
@@ -225,8 +233,10 @@ export function syncSequenceCells(
             if (cell.textContent !== expected) {
                 cell.textContent = expected;
             }
+            if (cell.style.width !== widthPx) {
+                cell.style.width = widthPx;
+            }
         }
-        cell.style.width = `${options.width}px`;
     });
 }
 

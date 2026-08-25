@@ -1,4 +1,4 @@
-import { ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import classNames from "classnames";
 
@@ -60,6 +60,19 @@ export function DataGridHeaderNew(props: DataGridHeaderNewContainerProps): React
     const sequenceStartIndex =
         sequenceEnabled && !pagingState.isLimitBased ? pagingState.pageIndex * pagingState.pageSize : 0;
 
+    // Latest-values refs so the MutationObserver callback can always read the
+    // current sequence options without being recreated on every render
+    const sequenceEnabledRef = useRef(sequenceEnabled);
+    const sequencePositionRef = useRef(sequencePosition);
+    const sequenceWidthRef = useRef(sequenceWidth);
+    const sequenceStartIndexRef = useRef(sequenceStartIndex);
+    useEffect(() => {
+        sequenceEnabledRef.current = sequenceEnabled;
+        sequencePositionRef.current = sequencePosition;
+        sequenceWidthRef.current = sequenceWidth;
+        sequenceStartIndexRef.current = sequenceStartIndex;
+    }, [sequenceEnabled, sequencePosition, sequenceWidth, sequenceStartIndex]);
+
     const refresh = useCallback(() => {
         const element = findGrid(gridName);
         if (!element) {
@@ -104,6 +117,23 @@ export function DataGridHeaderNew(props: DataGridHeaderNewContainerProps): React
             setPagingState(readPagingState(gridElement));
             // DG2 re-renders its DOM on data/paging changes; re-apply hidden style
             applyHiddenHeaderStyle(gridElement, hideOriginalHeader);
+            // Sorting/paging can rebuild rows without changing the row count,
+            // in which case no state change would trigger the sync effect.
+            // Re-apply the sequence cells imperatively so they never disappear.
+            if (sequenceEnabledRef.current) {
+                syncSequenceCells(gridElement, {
+                    enabled: true,
+                    position: sequencePositionRef.current,
+                    width: sequenceWidthRef.current,
+                    startIndex: sequenceStartIndexRef.current
+                });
+                applySequenceTemplateColumns(
+                    gridElement,
+                    true,
+                    sequencePositionRef.current,
+                    sequenceWidthRef.current
+                );
+            }
         });
         observer.observe(gridElement, {
             attributes: true,

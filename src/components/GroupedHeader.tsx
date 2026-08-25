@@ -13,6 +13,11 @@ import {
 export interface GroupedHeaderProps {
     parsed: ParsedHeader;
     gridState: GridState;
+    sequenceEnabled?: boolean;
+    sequenceLabel?: string;
+    sequencePosition?: "first" | "last";
+    /** Row number of the first visible row (0 based offset for the running numbers) */
+    sequenceStartIndex?: number;
 }
 
 function SortIndicator({ sort }: { sort: "none" | "ascending" | "descending" }): ReactElement {
@@ -27,10 +32,13 @@ function SortIndicator({ sort }: { sort: "none" | "ascending" | "descending" }):
 
 function HeaderCellView({
     cell,
-    gridState
+    gridState,
+    columnOffset
 }: {
     cell: HeaderCell;
     gridState: GridState;
+    /** Extra leading tracks inserted before the configured columns */
+    columnOffset: number;
 }): ReactElement {
     const targetHeader = gridState.originalHeaders[cell.columnIndex];
     // Only leaf cells (rowspan=2) are sortable; group parents with children
@@ -45,7 +53,7 @@ function HeaderCellView({
                 [`widget-datagridheadernew-sorted-${sort}`]: sort !== "none"
             })}
             style={{
-                gridColumn: `${cell.columnIndex + 1} / span ${cell.colspan}`,
+                gridColumn: `${cell.columnIndex + 1 + columnOffset} / span ${cell.colspan}`,
                 gridRow: `1 / span ${cell.rowspan}`
             }}
             role={sortable ? "button" : undefined}
@@ -59,10 +67,12 @@ function HeaderCellView({
 
 function LeafCellView({
     leaf,
-    gridState
+    gridState,
+    columnOffset
 }: {
     leaf: HeaderLeaf;
     gridState: GridState;
+    columnOffset: number;
 }): ReactElement {
     const targetHeader = gridState.originalHeaders[leaf.columnIndex];
     const sort = targetHeader ? getSortState(targetHeader) : "none";
@@ -74,7 +84,7 @@ function LeafCellView({
                 "widget-datagridheadernew-cell-sortable": sortable,
                 [`widget-datagridheadernew-sorted-${sort}`]: sort !== "none"
             })}
-            style={{ gridColumn: `${leaf.columnIndex + 1}`, gridRow: "2" }}
+            style={{ gridColumn: `${leaf.columnIndex + 1 + columnOffset}`, gridRow: "2" }}
             onClick={sortable ? () => forwardClick(targetHeader) : undefined}
         >
             <span className="widget-datagridheadernew-label">{leaf.label}</span>
@@ -83,13 +93,30 @@ function LeafCellView({
     );
 }
 
+/** Header cell of the sequence running column */
+function SequenceHeaderCell({ label, position }: { label: string; position: "first" | "last" }): ReactElement {
+    return (
+        <div
+            className="widget-datagridheadernew-cell widget-datagridheadernew-seq-header"
+            style={{
+                gridColumn: position === "first" ? "1 / span 1" : `-1 / span 1`,
+                gridRow: "1 / span 2"
+            }}
+        >
+            <span className="widget-datagridheadernew-label">{label}</span>
+        </div>
+    );
+}
+
 /** Mirrors the original select-all checkbox: real state + click forwarding */
 function SelectAllCell({
     columnIndex,
-    gridState
+    gridState,
+    columnOffset
 }: {
     columnIndex: number;
     gridState: GridState;
+    columnOffset: number;
 }): ReactElement {
     const originalHeader = gridState.originalHeaders[columnIndex];
     const [tick, setTick] = useState(0);
@@ -105,7 +132,7 @@ function SelectAllCell({
     return (
         <div
             className="widget-datagridheadernew-cell widget-datagridheadernew-filler widget-datagridheadernew-select-all"
-            style={{ gridColumn: `${columnIndex + 1}`, gridRow: "1 / span 2" }}
+            style={{ gridColumn: `${columnIndex + 1 + columnOffset}`, gridRow: "1 / span 2" }}
             onClick={() => {
                 forwardSelectClick(originalHeader);
             }}
@@ -129,7 +156,17 @@ function SelectAllCell({
     );
 }
 
-export function GroupedHeader({ parsed, gridState }: GroupedHeaderProps): ReactElement {
+export function GroupedHeader({
+    parsed,
+    gridState,
+    sequenceEnabled = false,
+    sequenceLabel = "No.",
+    sequencePosition = "first"
+}: GroupedHeaderProps): ReactElement {
+    // When the sequence column is inserted as the first track every configured
+    // column shifts one track to the right
+    const columnOffset = sequenceEnabled && sequencePosition === "first" ? 1 : 0;
+
     // Build row 2 leaves that are not covered by a rowspan=2 parent cell
     const coveredByParent = new Set<number>();
     for (const cell of parsed.row1) {
@@ -159,14 +196,27 @@ export function GroupedHeader({ parsed, gridState }: GroupedHeaderProps): ReactE
 
     return (
         <div className="widget-datagridheadernew-header">
+            {sequenceEnabled && (
+                <SequenceHeaderCell label={sequenceLabel} position={sequencePosition} />
+            )}
             <div className="widget-datagridheadernew-row1">
                 {parsed.row1.map((cell, index) => (
-                    <HeaderCellView key={`${cell.label}-${index}`} cell={cell} gridState={gridState} />
+                    <HeaderCellView
+                        key={`${cell.label}-${index}`}
+                        cell={cell}
+                        gridState={gridState}
+                        columnOffset={columnOffset}
+                    />
                 ))}
             </div>
             <div className="widget-datagridheadernew-row2">
                 {row2Leaves.map((leaf, index) => (
-                    <LeafCellView key={`${leaf.label}-${index}`} leaf={leaf} gridState={gridState} />
+                    <LeafCellView
+                        key={`${leaf.label}-${index}`}
+                        leaf={leaf}
+                        gridState={gridState}
+                        columnOffset={columnOffset}
+                    />
                 ))}
                 {fillers.map(columnIndex =>
                     gridState.selectColumns.includes(columnIndex) ? (
@@ -174,12 +224,16 @@ export function GroupedHeader({ parsed, gridState }: GroupedHeaderProps): ReactE
                             key={`select-${columnIndex}`}
                             columnIndex={columnIndex}
                             gridState={gridState}
+                            columnOffset={columnOffset}
                         />
                     ) : (
                         <div
                             key={`filler-${columnIndex}`}
                             className="widget-datagridheadernew-cell widget-datagridheadernew-filler"
-                            style={{ gridColumn: `${columnIndex + 1}`, gridRow: "1 / span 2" }}
+                            style={{
+                                gridColumn: `${columnIndex + 1 + columnOffset}`,
+                                gridRow: "1 / span 2"
+                            }}
                         />
                     )
                 )}

@@ -1,7 +1,7 @@
 {
   "name": "datagridheadernew",
   "widgetName": "DataGridHeaderNew",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Custom grouped two-level header layer for Data Grid 2",
   "copyright": "© Mendix Technology BV 2026. All rights reserved.",
   "author": "bb",

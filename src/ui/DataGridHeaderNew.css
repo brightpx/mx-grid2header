@@ -115,3 +115,24 @@
     cursor: pointer;
     accent-color: #0595d2;
 }
+
+/* ===== Sequence running column ===== */
+
+/* Header cell of the sequence column (rendered inside the portal header) */
+.widget-datagridheadernew-seq-header {
+    font-weight: 600;
+}
+
+/* Injected body cells — styled to match DG2 td look while staying inert */
+.td.widget-datagridheadernew-seq-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    color: #757575;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    user-select: none;
+}

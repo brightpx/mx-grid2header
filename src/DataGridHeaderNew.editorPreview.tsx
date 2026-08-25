@@ -6,6 +6,8 @@ export function preview(props: DataGridHeaderNewPreviewProps): ReactElement {
     const row1 = (props.headerRow1 || "").split(",").map(v => v.trim());
     const row2 = (props.headerRow2 || "").split(",").map(v => v.trim());
     const columns = Math.max(row1.length, row2.length, 1);
+    const seqEnabled = !!props.sequenceEnabled;
+    const seqLabel = props.sequenceLabel || "No.";
 
     return (
         <div style={{ fontFamily: "monospace", fontSize: 11, padding: 4 }}>
@@ -13,6 +15,20 @@ export function preview(props: DataGridHeaderNewPreviewProps): ReactElement {
                 Grouped header → {props.gridName || "(grid name not set)"}
             </div>
             <div style={{ display: "flex", gap: 2 }}>
+                {seqEnabled && (
+                    <div
+                        style={{
+                            border: "1px solid #ccc",
+                            padding: "2px 4px",
+                            background: "#fff8e1",
+                            fontWeight: 600,
+                            minWidth: 32,
+                            textAlign: "center"
+                        }}
+                    >
+                        {seqLabel}
+                    </div>
+                )}
                 {Array.from({ length: columns }, (_, i) => (
                     <div
                         key={i}

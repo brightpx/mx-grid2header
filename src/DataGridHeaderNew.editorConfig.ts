@@ -100,15 +100,18 @@ export type PreviewProps =
     | DatasourceProps;
 
 export function getProperties(
-    _values: DataGridHeaderNewPreviewProps,
+    values: DataGridHeaderNewPreviewProps,
     defaultProperties: Properties /* , target: Platform*/
 ): Properties {
-    // Do the values manipulation here to control the visibility of properties in Studio and Studio Pro conditionally.
-    /* Example
-    if (values.myProperty === "custom") {
-        delete defaultProperties.properties.myOtherProperty;
+    // Hide the sequence column options while the feature is turned off
+    if (!values.sequenceEnabled) {
+        for (const group of defaultProperties) {
+            group.properties = (group.properties ?? []).filter(
+                p => !p.key.startsWith("sequence") || p.key === "sequenceEnabled"
+            );
+        }
+        return defaultProperties.filter(group => (group.properties ?? []).length > 0);
     }
-    */
     return defaultProperties;
 }
 

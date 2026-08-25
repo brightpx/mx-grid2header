@@ -12,6 +12,17 @@ export interface GridState {
     originalHeaders: HTMLElement[];
     /** Column indexes whose header holds the select-all checkbox */
     selectColumns: number[];
+    /** Number of body rows currently rendered (grows in load more / virtual scrolling) */
+    rowCount: number;
+}
+
+export interface PagingState {
+    /** Zero based index of the current page (buttons mode) */
+    pageIndex: number;
+    /** Number of rows per page as configured on the DataGrid2 */
+    pageSize: number;
+    /** True when the grid uses virtual scrolling or load more pagination */
+    isLimitBased: boolean;
 }
 
 export function findGrid(gridName: string): HTMLElement | null {
@@ -44,11 +55,15 @@ export function ensureHeaderContainer(gridElement: HTMLElement): HTMLElement {
 export function readGridState(gridElement: HTMLElement): GridState {
     const inner = findGridInner(gridElement);
     if (!inner) {
-        return { columnCount: 0, templateColumns: "", originalHeaders: [], selectColumns: [] };
+        return { columnCount: 0, templateColumns: "", originalHeaders: [], selectColumns: [], rowCount: 0 };
     }
 
     const computed = getComputedStyle(inner);
-    const templateColumns = computed.getPropertyValue(TEMPLATE_VAR).trim();
+    // When the sequence column override is active the inline variable holds
+    // the extended value; report the original base so extensions are not
+    // applied twice
+    const originalTemplate = inner.dataset.dgihnOriginalTemplate;
+    const templateColumns = originalTemplate ?? computed.getPropertyValue(TEMPLATE_VAR).trim();
 
     // Data Grid 2 renders a div-based grid: .widget-datagrid-grid-head > .tr > .th
     const headerCells = inner.querySelectorAll<HTMLElement>(
@@ -63,11 +78,15 @@ export function readGridState(gridElement: HTMLElement): GridState {
         }
     });
 
+    // Body rows grow when load more / virtual scrolling appends pages
+    const rowCount = inner.querySelectorAll<HTMLElement>(".widget-datagrid-grid-body > .tr").length;
+
     return {
         columnCount: headerCells.length,
         templateColumns,
         originalHeaders: Array.from(headerCells),
-        selectColumns
+        selectColumns,
+        rowCount
     };
 }
 
@@ -121,6 +140,174 @@ export function validateConfig(parsed: ParsedHeader, actualColumns: number): str
         return "GroupedHeader: configured columns exceed visible DataGrid2 columns";
     }
     return null;
+}
+
+/**
+ * Reads the current pagination state from the DataGrid2 footer/top bar.
+ *
+ * - Buttons mode renders a `.paging-status` element like "11 to 20 of 100",
+ *   which gives us both page size and current page directly.
+ * - Virtual scrolling / load more have no such status; rows accumulate in the
+ *   DOM, so the running number simply continues row by row.
+ */
+export function readPagingState(gridElement: HTMLElement): PagingState {
+    const inner = findGridInner(gridElement);
+    if (!inner) {
+        return { pageIndex: 0, pageSize: 0, isLimitBased: false };
+    }
+
+    const root = gridElement.querySelector<HTMLElement>(".widget-datagrid") ?? gridElement;
+    const status = root.querySelector<HTMLElement>(".paging-status");
+    const text = status?.textContent ?? "";
+    const match = text.match(/(\d+)\s*(?:-|to|–|—)\s*(\d+)/i);
+    if (match) {
+        const first = parseInt(match[1], 10);
+        const pageSize = parseInt(match[2], 10) - first + 1;
+        return {
+            pageIndex: Math.floor((first - 1) / Math.max(pageSize, 1)),
+            pageSize,
+            isLimitBased: false
+        };
+    }
+
+    // No paging status rendered: virtual scrolling / load more / custom paging.
+    // Rows accumulate in the DOM so numbers keep counting continuously.
+    return { pageIndex: 0, pageSize: 0, isLimitBased: true };
+}
+
+/**
+ * Inserts or removes the sequence number cells in every body row. Cells are
+ * plain DOM nodes managed outside React because Data Grid 2 re-renders its
+ * own rows; a MutationObserver keeps them in sync.
+ */
+export function syncSequenceCells(
+    gridElement: HTMLElement,
+    options: { enabled: boolean; position: "first" | "last"; width: number; startIndex: number }
+): void {
+    const inner = findGridInner(gridElement);
+    if (!inner) {
+        return;
+    }
+
+    // Remove all previously injected cells when disabled
+    if (!options.enabled) {
+        removeSequenceCells(inner);
+        return;
+    }
+
+    const body = inner.querySelector<HTMLElement>(".widget-datagrid-grid-body");
+    if (!body) {
+        return;
+    }
+    
+    const rows = Array.from(body.querySelectorAll<HTMLElement>(":scope > .tr"));
+    rows.forEach((row, rowIndex) => {
+        let cell = row.querySelector<HTMLElement>(":scope > .widget-datagridheadernew-seq-cell");
+        if (!cell) {
+            cell = document.createElement("div");
+            cell.className = "td widget-datagridheadernew-seq-cell";
+            cell.setAttribute("role", "gridcell");
+            cell.setAttribute("aria-hidden", "true");
+            cell.textContent = String(options.startIndex + rowIndex + 1);
+            if (options.position === "first") {
+                row.insertBefore(cell, row.firstChild);
+            } else {
+                row.appendChild(cell);
+            }
+        } else {
+            // Keep position and text up to date when DG2 re-renders rows
+            if (options.position === "first" && cell !== row.firstElementChild) {
+                row.insertBefore(cell, row.firstChild);
+            } else if (options.position === "last" && cell !== row.lastElementChild) {
+                row.appendChild(cell);
+            }
+            const expected = String(options.startIndex + rowIndex + 1);
+            if (cell.textContent !== expected) {
+                cell.textContent = expected;
+            }
+        }
+        cell.style.width = `${options.width}px`;
+    });
+}
+
+function removeSequenceCells(scope: HTMLElement): void {
+    scope.querySelectorAll(".widget-datagridheadernew-seq-cell").forEach(cell => cell.remove());
+}
+
+/**
+ * Adds (or removes) an extra grid track for the sequence column directly on
+ * the DataGrid2 table element. All body rows are display:contents children of
+ * the table grid, so the injected sequence cells only line up when the
+ * --widgets-grid-template-columns variable itself gains the extra track —
+ * setting gridTemplateColumns on the header portal alone is not enough and
+ * would push the last real cell of every row onto a new line.
+ *
+ * The original value is stored in a data attribute so it can be restored
+ * when the feature is disabled or the widget unmounts. The function is
+ * idempotent and tolerates DG2 rewriting its own inline style.
+ */
+export function applySequenceTemplateColumns(
+    gridElement: HTMLElement,
+    enabled: boolean,
+    position: "first" | "last",
+    width: number
+): void {
+    const inner = findGridInner(gridElement);
+    if (!inner) {
+        return;
+    }
+
+    const current = inner.style.getPropertyValue(TEMPLATE_VAR).trim();
+    const savedBase = inner.dataset.dgihnOriginalTemplate;
+
+    if (!enabled || !current) {
+        if (savedBase !== undefined) {
+            if (current !== savedBase) {
+                inner.style.setProperty(TEMPLATE_VAR, savedBase);
+            }
+            delete inner.dataset.dgihnOriginalTemplate;
+            delete inner.dataset.dgihnSeqTrack;
+        }
+        return;
+    }
+
+    // Base template = the original DG2 value (before our override)
+    let base = current;
+    if (savedBase !== undefined) {
+        base = savedBase;
+        const extendedNow = extendTemplateColumns(savedBase, true, position, width);
+        if (extendedNow && current !== extendedNow && current !== savedBase) {
+            // DG2 changed its own template while we hold an override —
+            // adopt the new value as the new base
+            base = current;
+            inner.dataset.dgihnOriginalTemplate = current;
+        }
+    } else {
+        inner.dataset.dgihnOriginalTemplate = current;
+    }
+
+    const extended = extendTemplateColumns(base, true, position, width);
+    if (extended && current !== extended) {
+        inner.style.setProperty(TEMPLATE_VAR, extended);
+    }
+    inner.dataset.dgihnSeqTrack = `${position}-${width}`;
+}
+
+/**
+ * Extends the grid template columns CSS variable with an extra track for the
+ * sequence column. Returns null when no extra track is needed.
+ */
+export function extendTemplateColumns(
+    templateColumns: string,
+    enabled: boolean,
+    position: "first" | "last",
+    width: number
+): string | null {
+    if (!enabled || !templateColumns) {
+        return null;
+    }
+    const track = ` ${width}px`;
+    return position === "first" ? `${width}px ${templateColumns}` : `${templateColumns}${track}`;
 }
 
 export function applyHiddenHeaderStyle(gridElement: HTMLElement, hidden: boolean): void {

@@ -19,6 +19,28 @@
                 <description>Visually hide the original Data Grid 2 header while keeping it functional in the DOM</description>
             </property>
         </propertyGroup>
+        <propertyGroup caption="Sequence running column">
+            <property key="sequenceEnabled" type="boolean" defaultValue="false">
+                <caption>Enable sequence running column</caption>
+                <description>Adds a running number column to the grid. Numbers keep counting across pages (page 2 continues from page 1, e.g. 11-20 with page size 10). In virtual scrolling / load more mode numbers keep increasing continuously.</description>
+            </property>
+            <property key="sequenceLabel" type="string" required="false" defaultValue="No.">
+                <caption>Sequence column header</caption>
+                <description>Header text of the sequence running column</description>
+            </property>
+            <property key="sequencePosition" type="enumeration" defaultValue="first">
+                <caption>Sequence column position</caption>
+                <description>Where the sequence running column is inserted</description>
+                <enumerationValues>
+                    <enumerationValue key="first">First column</enumerationValue>
+                    <enumerationValue key="last">Last column</enumerationValue>
+                </enumerationValues>
+            </property>
+            <property key="sequenceWidth" type="integer" defaultValue="60">
+                <caption>Sequence column width (px)</caption>
+                <description>Width in pixels of the sequence running column</description>
+            </property>
+        </propertyGroup>
         <propertyGroup caption="Header configuration">
             <property key="headerRow1" type="string" required="true">
                 <caption>Header row 1</caption>

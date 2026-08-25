@@ -62,7 +62,7 @@
     padding: 8px;
     font-weight: 600;
     background-color: var(--dgihn-header-background);
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -70,12 +70,13 @@
 
 .widget-datagridheadernew-leaf {
     font-weight: 400;
-    border-bottom: 1px solid #e0e0e0;
+  
 }
 
 .widget-datagridheadernew-cell-sortable {
     cursor: pointer;
     user-select: none;
+        font-weight: 600;
 }
 
 .widget-datagridheadernew-cell-sortable:hover {
@@ -135,4 +136,5 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     user-select: none;
+    border-top-width: 0;
 }

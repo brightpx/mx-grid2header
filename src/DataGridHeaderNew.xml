@@ -28,13 +28,9 @@
                 <caption>Sequence column header</caption>
                 <description>Header text of the sequence running column</description>
             </property>
-            <property key="sequencePosition" type="enumeration" defaultValue="first">
+            <property key="sequencePosition" type="integer" defaultValue="1">
                 <caption>Sequence column position</caption>
-                <description>Where the sequence running column is inserted</description>
-                <enumerationValues>
-                    <enumerationValue key="first">First column</enumerationValue>
-                    <enumerationValue key="last">Last column</enumerationValue>
-                </enumerationValues>
+                <description>Column number where the sequence running column is inserted: 1 = first column, 2 = second column, etc. Values larger than the number of grid columns place it as the last column.</description>
             </property>
             <property key="sequenceWidth" type="integer" defaultValue="60">
                 <caption>Sequence column width (px)</caption>

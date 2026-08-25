@@ -188,7 +188,7 @@ export function readPagingState(gridElement: HTMLElement): PagingState {
  */
 export function syncSequenceCells(
     gridElement: HTMLElement,
-    options: { enabled: boolean; position: "first" | "last"; width: number; startIndex: number }
+    options: { enabled: boolean; position: number; width: number; startIndex: number }
 ): void {
     const inner = findGridInner(gridElement);
     if (!inner) {
@@ -217,18 +217,8 @@ export function syncSequenceCells(
             cell.setAttribute("aria-hidden", "true");
             cell.textContent = String(options.startIndex + rowIndex + 1);
             cell.style.width = widthPx;
-            if (options.position === "first") {
-                row.insertBefore(cell, row.firstChild);
-            } else {
-                row.appendChild(cell);
-            }
         } else {
-            // Keep position and text up to date when DG2 re-renders rows
-            if (options.position === "first" && cell !== row.firstElementChild) {
-                row.insertBefore(cell, row.firstChild);
-            } else if (options.position === "last" && cell !== row.lastElementChild) {
-                row.appendChild(cell);
-            }
+            // Keep text up to date when DG2 re-renders rows
             const expected = String(options.startIndex + rowIndex + 1);
             if (cell.textContent !== expected) {
                 cell.textContent = expected;
@@ -237,6 +227,19 @@ export function syncSequenceCells(
                 cell.style.width = widthPx;
             }
         }
+        // Place the cell at the configured position. Detach first so the
+        // child index math stays valid when moving the cell to the right.
+        if (cell.parentElement === row) {
+            const currentIndex = Array.from(row.children).indexOf(cell);
+            const desiredIndex = resolveSequenceTrackIndex(options.position, row.children.length);
+            if (currentIndex === desiredIndex) {
+                return;
+            }
+            cell.remove();
+        }
+        // +1 because inserting into a row with N children offers N+1 slots
+        const index = resolveSequenceTrackIndex(options.position, row.children.length + 1);
+        row.insertBefore(cell, row.children[index] ?? null);
     });
 }
 
@@ -259,7 +262,7 @@ function removeSequenceCells(scope: HTMLElement): void {
 export function applySequenceTemplateColumns(
     gridElement: HTMLElement,
     enabled: boolean,
-    position: "first" | "last",
+    position: number,
     width: number
 ): void {
     const inner = findGridInner(gridElement);
@@ -304,20 +307,67 @@ export function applySequenceTemplateColumns(
 }
 
 /**
+ * Splits a grid-template-columns value into individual tracks while keeping
+ * functional notation such as minmax(auto, 1fr) intact.
+ */
+function splitTracks(template: string): string[] {
+    const tracks: string[] = [];
+    let depth = 0;
+    let current = "";
+    for (const ch of template.trim()) {
+        if (ch === "(") {
+            depth++;
+        } else if (ch === ")") {
+            depth--;
+        }
+        if (depth === 0 && /\s/.test(ch)) {
+            if (current) {
+                tracks.push(current);
+                current = "";
+            }
+        } else {
+            current += ch;
+        }
+    }
+    if (current) {
+        tracks.push(current);
+    }
+    return tracks;
+}
+
+/**
+ * Normalizes the configured sequence column position (1-based column number)
+ * to a zero-based track index clamped to the available tracks. Positions
+ * larger than the track count land on the last track.
+ */
+export function resolveSequenceTrackIndex(position: number, totalTracks: number): number {
+    if (!Number.isFinite(position) || totalTracks <= 0) {
+        return 0;
+    }
+    const desired = Math.round(position) - 1;
+    return Math.min(Math.max(desired, 0), totalTracks - 1);
+}
+
+/**
  * Extends the grid template columns CSS variable with an extra track for the
- * sequence column. Returns null when no extra track is needed.
+ * sequence column at the configured position. Returns null when no extra
+ * track is needed.
  */
 export function extendTemplateColumns(
     templateColumns: string,
     enabled: boolean,
-    position: "first" | "last",
+    position: number,
     width: number
 ): string | null {
     if (!enabled || !templateColumns) {
         return null;
     }
-    const track = ` ${width}px`;
-    return position === "first" ? `${width}px ${templateColumns}` : `${templateColumns}${track}`;
+    const tracks = splitTracks(templateColumns);
+    // The position refers to the final column numbering including the new
+    // sequence track itself, hence tracks.length + 1
+    const index = resolveSequenceTrackIndex(position, tracks.length + 1);
+    tracks.splice(index, 0, `${width}px`);
+    return tracks.join(" ");
 }
 
 export function applyHiddenHeaderStyle(gridElement: HTMLElement, hidden: boolean): void {

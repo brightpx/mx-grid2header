@@ -5,8 +5,6 @@
  */
 import { CSSProperties } from "react";
 
-export type SequencePositionEnum = "first" | "last";
-
 export type BackgroundColorEnum = "default" | "transparent" | "white" | "gray" | "blue" | "primary" | "dark";
 
 export interface DataGridHeaderNewContainerProps {
@@ -18,7 +16,7 @@ export interface DataGridHeaderNewContainerProps {
     hideOriginalHeader: boolean;
     sequenceEnabled: boolean;
     sequenceLabel: string;
-    sequencePosition: SequencePositionEnum;
+    sequencePosition: number;
     sequenceWidth: number;
     headerRow1: string;
     headerRow2: string;
@@ -40,7 +38,7 @@ export interface DataGridHeaderNewPreviewProps {
     hideOriginalHeader: boolean;
     sequenceEnabled: boolean;
     sequenceLabel: string;
-    sequencePosition: SequencePositionEnum;
+    sequencePosition: number | null;
     sequenceWidth: number | null;
     headerRow1: string;
     headerRow2: string;

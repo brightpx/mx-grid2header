@@ -194,8 +194,8 @@ export function DataGridHeaderNew(props: DataGridHeaderNewContainerProps): React
     useEffect(
         () => () => {
             if (gridElement) {
-                syncSequenceCells(gridElement, { enabled: false, position: "first", width: 0, startIndex: 0 });
-                applySequenceTemplateColumns(gridElement, false, "first", 0);
+                syncSequenceCells(gridElement, { enabled: false, position: 1, width: 0, startIndex: 0 });
+                applySequenceTemplateColumns(gridElement, false, 1, 0);
             }
         },
         [gridElement]
